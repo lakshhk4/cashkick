@@ -5,7 +5,7 @@ import Header from "../../component/header";
 import { useEffect, useState } from "react";
 import SearchPlayer from "../../component/SearchPlayer";
 import PurchaseHistoryModal from "../../component/PurchaseHistoryModal";
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
 
 export default function Home() {
   const [userData, setUserData] = useState(null);
@@ -66,12 +66,12 @@ export default function Home() {
 
   const navigateToAnalytics = () => {
     router.push(`/analytics`);
-  }
+  };
 
   const handleSell = async () => {
     if (searchResult && userData && units > 0) {
       const unitsToSell = Math.min(searchResult.units, units); // Sell the minimum of available units and selected units
-      const newBudget = parseInt(searchResult.cost * unitsToSell);
+      const newBudget = parseInt(searchResult.price * unitsToSell);
 
       try {
         const response = await fetch("http://localhost:8000/sell/player", {
@@ -110,7 +110,7 @@ export default function Home() {
 
   const handleBuy = async () => {
     if (searchResult && userData) {
-      const playerCost = searchResult.cost * units; // replace 'cost' with the actual property name
+      const playerCost = searchResult.price * units; // replace 'cost' with the actual property name
       const remainingBudget = userData.budget - playerCost;
 
       if (remainingBudget >= 0) {
@@ -182,9 +182,10 @@ export default function Home() {
   };
 
   const handlePurchaseHistory = (player) => {
+    console.log(player);
     setIsModalOpen(true);
-    setPurchaseHistory(player["purchase_history"])
-  }
+    setPurchaseHistory(player);
+  };
 
   return (
     <main className="flex min-h-screen flex-col items-start p-24">
@@ -212,7 +213,7 @@ export default function Home() {
             <span className="text-5xl font-bold mt-4 text-green-500">9.3%</span>
           </div>
 
-          <span className="text-xl font-bold mt-12">Top Players</span>
+          <span className="text-xl font-bold mt-12">My Players</span>
 
           {userData.players.map((player, index) => {
             return (
@@ -233,6 +234,7 @@ export default function Home() {
                   <span className="ms-3 text-xl">{player.overall}</span>
                 </div>
                 <span className="ms-3 text-xl">{player.units}</span>
+                <span className="ms-3 text-xl">${player.cost_per_unit}</span>
                 <button onClick={() => handlePurchaseHistory(player)}>
                   Purchase history
                 </button>
@@ -253,20 +255,20 @@ export default function Home() {
           {searchResult ? (
             <div className="flex flex-col items-center w-full px-20 py-10">
               <div className="flex flex-row w-full justify-between">
-                <span className="text-4xl">{searchResult.name}</span>
+                <span className="text-4xl">{searchResult.display_name}</span>
                 <span className="text-4xl font-bold">
                   {searchResult.overall}
                 </span>
               </div>
 
               <span className="w-full text-left text-2xl mt-4">
-                ${searchResult.cost}
+                ${searchResult.price}
               </span>
 
               <div className="flex flex-col">
                 <Image
                   src={searchResult.vers_img}
-                  alt={searchResult.name}
+                  alt={searchResult.display_name}
                   height={240}
                   width={240}
                   className="object-cover"
@@ -276,15 +278,24 @@ export default function Home() {
                   <span className="text-[#F5DB9B] text-4xl mt-16 ms-10">
                     {searchResult.overall}
                   </span>
-                  <span className="text-[#F5DB9B] text-xl ms-[44px]">
+                  <span className="text-[#F5DB9B] text-xl ms-[44px] z-10">
                     {searchResult.position}
                   </span>
 
-                  <span className="text-[#F5DB9B] text-lg mt-[60px] ms-[85px]">
-                    {searchResult.name}
-                  </span>
+                  <Image
+                    src={searchResult.player_img}
+                    alt={searchResult.display_name}
+                    height={180}
+                    width={180}
+                    className="-mt-28 ms-4 z-0"
+                  />
+                  <div className="flex flex-col items-center">
+                    <span className="text-[#F5DB9B] text-lg -mt-20 z-10">
+                      {searchResult.display_name}
+                    </span>
+                  </div>
 
-                  <div className="flex flex-row justify-center space-x-4 w-full mt-1">
+                  <div className="flex flex-row justify-center space-x-4 w-full -mt-12">
                     <div className="flex flex-col items-center">
                       <span className="text-[#F5DB9B] text-xs">PAC</span>
                       <span className="text-[#F5DB9B] text-lg -mt-1">
@@ -361,14 +372,14 @@ export default function Home() {
               ) : (
                 <button
                   onClick={handleBuy}
-                  disabled={searchResult.cost > userData.budget}
+                  disabled={searchResult.price > userData.budget}
                   className="w-1/2 rounded-xl bg-green-500 p-4 mt-8"
                 >
                   <span className="text-2xl">Buy</span>
                 </button>
               )}
 
-              {searchResult.cost * units > userData.budget && !isSellMode && (
+              {searchResult.price * units > userData.budget && !isSellMode && (
                 <p>Cannot afford to buy this player with the current budget.</p>
               )}
             </div>

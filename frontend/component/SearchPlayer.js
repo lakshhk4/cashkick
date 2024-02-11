@@ -24,7 +24,7 @@ const SearchPlayer = ({ onSearch }) => {
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         onKeyPress={handleKeyPress}
-        className='text-black bg-slate-900'
+        className='text-white bg-slate-900'
       />
       <button onClick={handleSearch}>Search</button>
     </div>

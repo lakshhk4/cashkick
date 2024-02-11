@@ -4,7 +4,7 @@ import json
 from bson import json_util
 from flask_cors import CORS
 
-import datetime
+from datetime import datetime, timezone
 
 
 import random
@@ -22,8 +22,9 @@ client = MongoClient(CONNECTION_STRING)
 db = client['cashkick']
 # Replace 'your_collection_name' with your actual collection name
 usertable = db['user']
-playertable = db['collection']
+playertable = db['players']
 bought_price = db['Bought_Price']
+
 
 print(usertable)
 
@@ -69,37 +70,22 @@ def buy_player():
         player_cost = data.get('cost')
         remaining_budget = data.get('remaining_budget')
         units = data.get('units')
-        time = datetime.datetime.now()
+        time = datetime.now()
+        formatted_date = time.strftime("%Y-%m-%d %H:%M:%S %Z")
 
         if not player_details or not player_cost or not remaining_budget or units is None:
             return jsonify({'message': 'Invalid request data'}), 400
 
-        # Check if the player already exists in the user's players array
-        existing_player = usertable.find_one({'players.name': player_details['name']})
+        player_details["time"] = formatted_date
+        player_details["cost_per_unit"] = player_cost / units
+        player_details["units"] = units
 
-        if existing_player:
-            # If the player exists, update the units property
-            usertable.update_one(
-                {'players.name': player_details['name']},
-                {'$inc': {'players.$.units': units},
-                 '$push': {'players.$.purchase_history': {
-                     'cost_per_unit': player_cost,
-                     'total_units': units
-                 }},
-                 '$set': {'budget': remaining_budget}}
-            )
-        else:
-            # If the player doesn't exist, add the new player to the array
-            player_details['units'] = units
-            player_details['purchase_history'] = [{
-                'cost_per_unit': player_cost,
-                'total_units': units
-            }]
-            usertable.update_one(
-                {},
-                {'$push': {'players': player_details}, '$set': {'budget': remaining_budget}}
-            )
-        data_buy(remaining_budget,player_details['name'],time)
+        usertable.update_one(
+            {},
+            {'$push': {'players': player_details},
+                '$set': {'budget': remaining_budget}}
+        )
+        data_buy(remaining_budget, player_details['name'], time)
 
         return jsonify({'message': 'Player purchased successfully'}), 200
 
@@ -115,26 +101,28 @@ def sell_player():
         player_details = data.get('player_details')
         budget = data.get('budget')
         units_to_sell = data.get('units')
-
+        print(player_details['time'])
+        
         if not player_details or not budget or units_to_sell is None:
             return jsonify({'message': 'Invalid request data'}), 400
 
         # Adjust the units of the player being sold
-        player_to_sell = {'name': player_details['name'], 'units': units_to_sell}
+        player_to_sell = {
+            'time': player_details['time'], 'units': units_to_sell}
 
         # Update user's budget and decrement the units of the sold player
         usertable.update_one({
-            'players.name': player_details['name']
+            'players.time': player_details['time']
         }, {
             '$inc': {'budget': budget, 'players.$.units': -units_to_sell}
         })
 
         # Remove the player if units reach 0
         usertable.update_one({
-            'players.name': player_details['name'],
+            'players.time': player_details['time'],
             'players.units': {'$lte': 0}
         }, {
-            '$pull': {'players': {'name': player_details['name']}}
+            '$pull': {'players': {'time': player_details['time']}}
         })
 
         return jsonify({'message': 'Player sold successfully'}), 200
@@ -144,37 +132,39 @@ def sell_player():
         return jsonify({'error': str(e)}), 500
 
 
-def data_buy(budget, player_name,time):
+def data_buy(budget, player_name, time):
     players = playertable.find({})
     other_players = {}
     for player in players:
-        player_cost = player.get("cost",0)
-        
+        player_cost = player.get("cost", 0)
+
         if int(player_cost) <= budget:
             other_players[player["name"]] = int(player_cost)
-            
+
         else:
             other_players[player["name"]] = 0
-        
+
         bought_price.update_one(
             {"time": time},
-            {"$set": {"players":other_players}},
+            {"$set": {"players": other_players}},
             upsert=True
         )
 
 
-@app.route('/updateprice', methods=['POST','GET'])
+@app.route('/updateprice', methods=['POST', 'GET'])
 def update_prices():
     rows = playertable.find({})
     for row in rows:
         value = int(row['cost'])
         percentage_adjustment = 100 + random.uniform(5, -5)
         adjustment = int(value * (percentage_adjustment / 100))
-        playertable.update_one({'_id':row['_id']},{'$set':{'cost':adjustment}})
+        playertable.update_one({'_id': row['_id']}, {
+                               '$set': {'cost': adjustment}})
     update_portfolio()
     return "LOL"
-    
-@app.route('/updateportfolio', methods=['POST','GET'])
+
+
+@app.route('/updateportfolio', methods=['POST', 'GET'])
 def update_portfolio():
     users = usertable.find({})
     for user in users:
@@ -182,16 +172,16 @@ def update_portfolio():
         for player in user['players']:
             name = player['name']
             print(id)
-            player_found = playertable.find_one({'name':name})
+            player_found = playertable.find_one({'name': name})
             print(player_found)
             print(player_found.get('cost'))
-            new_portfolio+=player_found.get('cost')
+            new_portfolio += player_found.get('cost')
         wealth = new_portfolio+int(user['budget'])
         print(wealth)
-        usertable.update_one({'_id':user['_id']},{'$set':{'wealth':wealth}})
+        usertable.update_one({'_id': user['_id']}, {
+                             '$set': {'wealth': wealth}})
     return 'lol'
+
 
 if __name__ == '__main__':
     app.run(port=8000, debug=True)
-
-
