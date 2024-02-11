@@ -123,7 +123,7 @@ export default function Home() {
             },
             body: JSON.stringify({
               player_details: searchResult,
-              cost: playerCost,
+              price: playerCost,
               remaining_budget: remainingBudget,
               units: units,
             }),
@@ -224,13 +224,13 @@ export default function Home() {
               >
                 <div className="flex flex-row items-center">
                   <Image
-                    src={player.url}
+                    src={player.player_img}
                     alt={player.name}
-                    height={40}
-                    width={40}
+                    height={50}
+                    width={50}
                     className="rounded-full aspect-square object-cover"
                   ></Image>
-                  <span className="ms-3 text-2xl">{player.name}</span>
+                  <span className="ms-3 text-2xl">{player.display_name}</span>
                   <span className="ms-3 text-xl">{player.overall}</span>
                 </div>
                 <span className="ms-3 text-xl">{player.units}</span>

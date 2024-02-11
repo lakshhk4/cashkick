@@ -8,14 +8,10 @@ from datetime import datetime, timezone
 
 
 import random
-<<<<<<< Updated upstream
-
-=======
 import pandas as pd
 import time
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
->>>>>>> Stashed changes
 # import db
 
 app = Flask(__name__)
@@ -29,16 +25,9 @@ client = MongoClient(CONNECTION_STRING)
 db = client['cashkick']
 # Replace 'your_collection_name' with your actual collection name
 usertable = db['user']
-<<<<<<< Updated upstream
 playertable = db['players']
-bought_price = db['Bought_Price']
-
-
-print(usertable)
-=======
-playertable = db['collection']
 players = db['players']
->>>>>>> Stashed changes
+bought_price = db['Bought_Price']
 
 
 @app.route('/')
@@ -79,7 +68,7 @@ def buy_player():
     try:
         data = request.get_json()
         player_details = data.get('player_details')
-        player_cost = data.get('cost')
+        player_cost = data.get('price')
         remaining_budget = data.get('remaining_budget')
         units = data.get('units')
         time = datetime.now()
@@ -97,7 +86,7 @@ def buy_player():
             {'$push': {'players': player_details},
                 '$set': {'budget': remaining_budget}}
         )
-        data_buy(remaining_budget, player_details['name'], time)
+        data_buy(remaining_budget, player_details['name'], formatted_date)
 
         return jsonify({'message': 'Player purchased successfully'}), 200
 
@@ -137,6 +126,8 @@ def sell_player():
             '$pull': {'players': {'time': player_details['time']}}
         })
 
+       # profit_table = 
+
         return jsonify({'message': 'Player sold successfully'}), 200
 
     except Exception as e:
@@ -148,7 +139,7 @@ def data_buy(budget, player_name, time):
     players = playertable.find({})
     other_players = {}
     for player in players:
-        player_cost = player.get("cost", 0)
+        player_cost = player.get("price", 0)
 
         if int(player_cost) <= budget:
             other_players[player["name"]] = int(player_cost)
@@ -167,15 +158,10 @@ def data_buy(budget, player_name, time):
 def update_prices():
     rows = players.find({})
     for row in rows:
-        value = int(row['cost'])
+        value = int(row['price'])
         percentage_adjustment = 100 + random.uniform(5, -5)
-        adjustment = int(value * (percentage_adjustment / 100))
-<<<<<<< Updated upstream
-        playertable.update_one({'_id': row['_id']}, {
-                               '$set': {'cost': adjustment}})
-=======
-        players.update_one({'_id':row['_id']},{'$set':{'cost':adjustment}})
->>>>>>> Stashed changes
+        adjustment = (int(value * (percentage_adjustment / 100)))
+        players.update_one({'_id':row['_id']},{'$set':{'price':adjustment}})
     update_portfolio()
     return "LOL"
 
@@ -187,21 +173,6 @@ def update_portfolio():
         new_portfolio = 0
         for player in user['players']:
             name = player['name']
-<<<<<<< Updated upstream
-            print(id)
-            player_found = playertable.find_one({'name': name})
-            print(player_found)
-            print(player_found.get('cost'))
-            new_portfolio += player_found.get('cost')
-        wealth = new_portfolio+int(user['budget'])
-        print(wealth)
-        usertable.update_one({'_id': user['_id']}, {
-                             '$set': {'wealth': wealth}})
-    return 'lol'
-
-
-if __name__ == '__main__':
-=======
             rating = player['overall']
             player_found = players.find_one({'name':name,'overall':rating})
             new_portfolio+=player_found.get('price')
@@ -232,5 +203,4 @@ if __name__ == '__main__':
     scheduler.add_job(func=update_prices, trigger="interval", minutes=0.5)
     scheduler.start()
     atexit.register(lambda: scheduler.shutdown())
->>>>>>> Stashed changes
     app.run(port=8000, debug=True)
