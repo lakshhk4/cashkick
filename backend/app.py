@@ -3,7 +3,12 @@ from flask import Flask, jsonify, request
 import json
 from bson import json_util
 from flask_cors import CORS
+
+import datetime
+
+
 import random
+
 # import db
 
 app = Flask(__name__)
@@ -18,6 +23,7 @@ db = client['cashkick']
 # Replace 'your_collection_name' with your actual collection name
 usertable = db['user']
 playertable = db['collection']
+bought_price = db['Bought_Price']
 
 print(usertable)
 
@@ -63,6 +69,7 @@ def buy_player():
         player_cost = data.get('cost')
         remaining_budget = data.get('remaining_budget')
         units = data.get('units')
+        time = datetime.datetime.now()
 
         if not player_details or not player_cost or not remaining_budget or units is None:
             return jsonify({'message': 'Invalid request data'}), 400
@@ -83,6 +90,7 @@ def buy_player():
                 {},
                 {'$push': {'players': player_details}, '$set': {'budget': remaining_budget}}
             )
+        data_buy(remaining_budget,player_details['name'],time)
 
         return jsonify({'message': 'Player purchased successfully'}), 200
 
@@ -116,6 +124,26 @@ def sell_player():
         print(e)
         return jsonify({'error': str(e)}), 500
 
+
+def data_buy(budget, player_name,time):
+    players = playertable.find({})
+    other_players = {}
+    for player in players:
+        player_cost = player.get("cost",0)
+        
+        if int(player_cost) <= budget:
+            other_players[player["name"]] = int(player_cost)
+            
+        else:
+            other_players[player["name"]] = 0
+        
+        bought_price.update_one(
+            {"time": time},
+            {"$set": {"players":other_players}},
+            upsert=True
+        )
+
+
 @app.route('/updateprice', methods=['POST','GET'])
 def update_prices():
     rows = playertable.find({})
@@ -143,5 +171,8 @@ def update_portfolio():
         print(wealth)
         usertable.update_one({'_id':user['_id']},{'$set':{'wealth':wealth}})
     return 'lol'
+
 if __name__ == '__main__':
     app.run(port=8000, debug=True)
+
+
