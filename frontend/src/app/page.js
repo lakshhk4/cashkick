@@ -1,112 +1,299 @@
+"use client";
+
 import Image from "next/image";
+import Header from "../../component/header";
+import { useEffect, useState } from "react";
+import SearchPlayer from "../../component/SearchPlayer";
 
 export default function Home() {
+  const [userData, setUserData] = useState(null);
+  const [searchResult, setSearchResult] = useState(null);
+  const [isSellMode, setIsSellMode] = useState(false);
+  const [units, setUnits] = useState(1);
+  const [incrementError, setIncrementError] = useState(false);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const res = await fetch("http://127.0.0.1:8000/user");
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch data");
+      }
+
+      const jsonData = await res.json();
+      setUserData(jsonData);
+    } catch (error) {
+      console.error(error);
+      // Handle the error as needed
+    }
+    console.log(userData);
+  };
+
+  const searchPlayer = async (playerName) => {
+    try {
+      const response = await fetch("http://localhost:8000/search/player", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ player_name: playerName }),
+      });
+
+      if (response.ok) {
+        const playerData = await response.json();
+        setSearchResult(playerData);
+        setIsSellMode(false);
+        setUnits(1);
+      } else {
+        console.error("Failed to fetch player data");
+        setSearchResult(null);
+      }
+    } catch (error) {
+      console.error("Error during search:", error);
+      setSearchResult(null);
+    }
+  };
+
+  const handleSell = async () => {
+    if (searchResult && userData) {
+      const newBudget = parseInt(searchResult.cost) + userData.budget; // replace 'cost' with the actual property name
+
+      console.info(newBudget);
+
+      try {
+        const response = await fetch("http://localhost:8000/sell/player", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            player_details: searchResult,
+            budget: newBudget,
+          }),
+        });
+
+        if (response.ok) {
+          // Update the local state by removing the sold player
+          // setUserData({
+          //   ...userData,
+          //   players: userData.players.filter(
+          //     (player) => player !== searchResult
+          //   ),
+          //   budget: userData.budget + playerPrice,
+          // });
+
+          fetchData();
+
+          setSearchResult(null);
+          setIsSellMode(false);
+          console.log("Sell successful!");
+        } else {
+          console.error("Failed to sell player");
+          console.error(response);
+        }
+      } catch (error) {
+        console.error("Error during sell:", error);
+      }
+    }
+  };
+
+  const handleBuy = async () => {
+    if (searchResult && userData) {
+      const playerCost = searchResult.cost * units; // replace 'cost' with the actual property name
+      const remainingBudget = userData.budget - playerCost;
+
+      if (remainingBudget >= 0) {
+        // If the user has enough budget, send update request
+        try {
+          const response = await fetch("http://localhost:8000/buy/player", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              player_details: searchResult,
+              cost: playerCost,
+              remaining_budget: remainingBudget,
+              units: units,
+            }),
+          });
+
+          if (response.ok) {
+            // Update the local state with the new budget
+            // setUserData({
+            //   ...userData,
+            //   budget: remainingBudget,
+            //   players: [...(userData.players || []), searchResult.player_details],
+            // });
+
+            fetchData();
+
+            console.log("Purchase successful!");
+          } else {
+            console.error("Failed to update user data");
+            console.error(response);
+          }
+        } catch (error) {
+          console.error("Error during purchase:", error);
+        }
+      } else {
+        console.log("Not enough budget to make the purchase");
+      }
+    }
+  };
+
+  if (!userData) {
+    // Data is still loading, return loading indicator or something
+    return <div>Loading...</div>;
+  }
+
+  const handlePlayerItemClick = (item) => {
+    console.log(item);
+    setSearchResult(item);
+    setIsSellMode(true);
+    setUnits(item.units)
+  };
+
+  const handleIncrement = () => {
+    if (!isSellMode || units < searchResult.units) {
+      setUnits((prevUnits) => prevUnits + 1);
+      if (incrementError) setIncrementError(false);
+    } else {
+      setIncrementError(true);
+    }
+  };
+  
+  const handleDecrement = () => {
+    if (units > 1) {
+      setUnits((prevUnits) => prevUnits - 1);
+      if (incrementError) setIncrementError(false);
+    }
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.js</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <main className="flex min-h-screen flex-col items-start p-24">
+      <div className="flex flex-row w-full justify-between items-center">
+        <span className="text-2xl font-semibold items-start">
+          Welcome Back, {userData.name}
+        </span>
+      </div>
+
+      <div className="h-[0.5px] w-full bg-slate-500 mt-8"></div>
+
+      <div className="grid grid-cols-2 w-full justify-between py-12">
+        <div className="flex flex-col items-start">
+          <div className="flex flex-row justify-between w-full">
+            <span className="text-xl font-semibold">My Portfolio</span>
+            <span className="text-xl font-semibold">Today's Performance</span>
+          </div>
+
+          <div className="flex flex-row justify-between w-full">
+            <span className="text-5xl font-bold mt-4">${userData.budget}</span>
+            <span className="text-5xl font-bold mt-4 text-green-500">9.3%</span>
+          </div>
+
+          <span className="text-xl font-bold mt-12">Top Players</span>
+
+          {userData.players.map((player, index) => {
+            return (
+              <div
+                key={index}
+                className="bg-slate-900 w-full flex flex-row justify-between items-center mt-2 p-4 rounded-md"
+                onClick={() => handlePlayerItemClick(player)}
+              >
+                <div className="flex flex-row items-center">
+                  <Image
+                    src={player.url}
+                    alt={player.name}
+                    height={40}
+                    width={40}
+                    className="rounded-full aspect-square object-cover"
+                  ></Image>
+                  <span className="ms-3 text-2xl">{player.name}</span>
+                  <span className="ms-3 text-xl">{player.rating}</span>
+                </div>
+                <span className="ms-3 text-xl">{player.units}</span>
+              </div>
+            );
+          })}
         </div>
-      </div>
+        <div className="flex flex-col items-start px-16">
+          <SearchPlayer onSearch={searchPlayer} />
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
+          {searchResult ? (
+            <div className="flex flex-col items-center w-full px-20 py-10">
+              <div className="flex flex-row w-full justify-between">
+                <span className="text-4xl">{searchResult.name}</span>
+                <span className="text-4xl font-bold">
+                  {searchResult.rating}
+                </span>
+              </div>
 
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
+              <span className="w-full text-left text-2xl mt-4">
+                ${searchResult.cost}
+              </span>
 
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800 hover:dark:bg-opacity-30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
+              <Image
+                src={searchResult.url}
+                alt={searchResult.name}
+                height={80}
+                width={80}
+                className="rounded-full aspect-square object-cover"
+              ></Image>
 
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
+              <div className="flex flex-col items-center mt-8">
+                <span className="text-2xl">Units</span>
+                <div className="flex items-center mt-2">
+                  <button
+                    onClick={handleDecrement}
+                    className="bg-gray-800 px-4 py-2 rounded-l"
+                  >
+                    -
+                  </button>
+                  <span className="bg-gray-600 px-4 py-2">{units}</span>
+                  <button
+                    onClick={handleIncrement}
+                    className="bg-gray-800 px-4 py-2 rounded-r"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
 
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
+              {incrementError && <p>Cannot sell more stocks than you own</p>}
+
+              {isSellMode ? (
+                <button
+                  onClick={handleSell}
+                  className="w-1/2 rounded-xl bg-red-500 p-4 mt-8"
+                >
+                  <span className="text-2xl">Sell</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleBuy}
+                  disabled={searchResult.cost > userData.budget}
+                  className="w-1/2 rounded-xl bg-green-500 p-4 mt-8"
+                >
+                  <span className="text-2xl">Buy</span>
+                </button>
+              )}
+
+              {searchResult.cost * units > userData.budget && !isSellMode && (
+                <p>Cannot afford to buy this player with the current budget.</p>
+              )}
+            </div>
+          ) : (
+            <div className="mt-20">
+              Select an existing player to view their details or search for a
+              new player
+            </div>
+          )}
+        </div>
       </div>
     </main>
   );
