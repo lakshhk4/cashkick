@@ -8,7 +8,14 @@ from datetime import datetime, timezone
 
 
 import random
+<<<<<<< Updated upstream
 
+=======
+import pandas as pd
+import time
+from apscheduler.schedulers.background import BackgroundScheduler
+import atexit
+>>>>>>> Stashed changes
 # import db
 
 app = Flask(__name__)
@@ -22,11 +29,16 @@ client = MongoClient(CONNECTION_STRING)
 db = client['cashkick']
 # Replace 'your_collection_name' with your actual collection name
 usertable = db['user']
+<<<<<<< Updated upstream
 playertable = db['players']
 bought_price = db['Bought_Price']
 
 
 print(usertable)
+=======
+playertable = db['collection']
+players = db['players']
+>>>>>>> Stashed changes
 
 
 @app.route('/')
@@ -153,13 +165,17 @@ def data_buy(budget, player_name, time):
 
 @app.route('/updateprice', methods=['POST', 'GET'])
 def update_prices():
-    rows = playertable.find({})
+    rows = players.find({})
     for row in rows:
         value = int(row['cost'])
         percentage_adjustment = 100 + random.uniform(5, -5)
         adjustment = int(value * (percentage_adjustment / 100))
+<<<<<<< Updated upstream
         playertable.update_one({'_id': row['_id']}, {
                                '$set': {'cost': adjustment}})
+=======
+        players.update_one({'_id':row['_id']},{'$set':{'cost':adjustment}})
+>>>>>>> Stashed changes
     update_portfolio()
     return "LOL"
 
@@ -171,6 +187,7 @@ def update_portfolio():
         new_portfolio = 0
         for player in user['players']:
             name = player['name']
+<<<<<<< Updated upstream
             print(id)
             player_found = playertable.find_one({'name': name})
             print(player_found)
@@ -184,4 +201,36 @@ def update_portfolio():
 
 
 if __name__ == '__main__':
+=======
+            rating = player['overall']
+            player_found = players.find_one({'name':name,'overall':rating})
+            new_portfolio+=player_found.get('price')
+        wealth = new_portfolio+int(user['budget'])
+        usertable.update_one({'_id':user['_id']},{'$set':{'wealth':wealth}})
+    return 'lol'
+
+@app.route('/import_data', methods=['POST','GET'])
+def import_data():
+    df = pd.read_csv('/Users/siddhantagarwal/Documents/GitHub/cashkick/data/data.csv')
+    df['price'] = df['price'].str.replace(',','').astype(int)
+    df['original_price'] = df['original_price'].str.replace(',','').astype(int)
+    #df.columns = str(df.columns)
+    #df.index = str(df.index)
+    data = df.to_dict(orient='records')
+    print(data)
+    players.insert_many(data)
+    return "lol"
+
+def reset_prices():
+    players_found = players.find({})
+    for player in players_found:
+        players.update_one({'_id':player['_id']},{'$set':{'price':player['original_price']}})
+
+if __name__ == '__main__': 
+    reset_prices()
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(func=update_prices, trigger="interval", minutes=0.5)
+    scheduler.start()
+    atexit.register(lambda: scheduler.shutdown())
+>>>>>>> Stashed changes
     app.run(port=8000, debug=True)
