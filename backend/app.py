@@ -115,15 +115,12 @@ def sell_player():
         print(e)
         return jsonify({'error': str(e)}), 500
 
-
-if __name__ == '__main__':
-    app.run(port=8000, debug=True)
-
-def data_buy(budget,player_name):
-    for player in playertable:
+def data_buy(budget, player_name):
+    players = playertable.find({})
+    for player in players:
         player_cost = player.get("cost",0)
         
-        if player_cost <= budget:
+        if int(player_cost) <= budget:
             bought_price.update_one(
                 {"player_name":player["name"]},
                 {"$set":{player_name:player_cost}},
@@ -135,3 +132,8 @@ def data_buy(budget,player_name):
                 {"$set": {player_name: float("nan")}},
                 upsert=True
             )
+
+if __name__ == '__main__':
+    app.run(port=8000, debug=True)
+
+
