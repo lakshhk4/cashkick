@@ -12,6 +12,15 @@ import pandas as pd
 import time
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
+
+from sklearn.cluster import KMeans
+from sklearn import datasets
+from sklearn.utils import shuffle
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+customcmap = ListedColormap(["crimson", "mediumblue", "darkmagenta","cyan","orange"])
+
 # import db
 
 app = Flask(__name__)
@@ -102,7 +111,7 @@ def sell_player():
         player_details = data.get('player_details')
         budget = data.get('budget')
         units_to_sell = data.get('units')
-        print(player_details['time'])
+       
         
         if not player_details or not budget or units_to_sell is None:
             return jsonify({'message': 'Invalid request data'}), 400
@@ -126,9 +135,38 @@ def sell_player():
             '$pull': {'players': {'time': player_details['time']}}
         })
 
-       # profit_table = 
+        profit_instance = bought_price.find_one(
+                {'time': player_details['time']})
 
-        return jsonify({'message': 'Player sold successfully'}), 200
+        player_info = players.find()
+
+        current_price = {}
+
+        for player in player_info:
+            current_price[player["name"]] = player["price"]
+
+        profit_table = {}
+
+        for i in list(profit_instance['players'].keys()):
+            profit_table[i] = current_price[i] - profit_instance['players'][i]
+
+        print(profit_table)
+
+        kmeans = train_model(profit_table)
+
+        name = player_details["name"]
+
+        profit = profit_table[name]
+
+        print(profit)
+
+        message = evaluate(profit, kmeans)[1]
+        calculated_profit = evaluate(profit, kmeans)[0]
+        
+
+        change_percent = performance(calculated_profit, profit_instance['players'][name])
+
+        return jsonify({'message': message}, {'performance': change_percent }), 200
 
     except Exception as e:
         print(e)
@@ -157,9 +195,10 @@ def data_buy(budget, player_name, time):
 @app.route('/updateprice', methods=['POST', 'GET'])
 def update_prices():
     rows = players.find({})
+    print("Prices have been updated")
     for row in rows:
         value = int(row['price'])
-        percentage_adjustment = 100 + random.uniform(5, -5)
+        percentage_adjustment = 100 + random.uniform(3, -2)
         adjustment = (int(value * (percentage_adjustment / 100)))
         players.update_one({'_id':row['_id']},{'$set':{'price':adjustment}})
     update_portfolio()
@@ -195,7 +234,57 @@ def import_data():
 def reset_prices():
     players_found = players.find({})
     for player in players_found:
-        players.update_one({'_id':player['_id']},{'$set':{'price':player['original_price']}})
+        players.update_one({'_id': player['_id']}, {'$set': {'price': player['original_price']}})
+        
+def train_model(dic):
+    df = pd.DataFrame.from_dict(dic.items())
+    df.columns = ['Name','price']
+
+    df['price'] = df['price'].replace(',', '', regex=True).astype(float)
+
+    constant_value = 10
+
+    X = np.array(df['price']).reshape(-1, 1)
+    X = np.hstack((X, np.full_like(X, constant_value)))
+
+    model = KMeans(n_clusters=5, random_state=42)
+    kmeans = model.fit(X)
+    return(kmeans)
+
+
+def evaluate(profit,kmeans):
+    cluster = kmeans.predict([[profit,10]])
+    if cluster == 2:
+        reward = [profit + abs(profit* 0.04),"Congratulations! You've made an exceptional trade. This could be one of your best moves, resulting in significant gains. Well done! As a reward, you are being awarded with an extra 4% of the profits you have made."]
+        return reward
+    if cluster == 4:
+        reward = [profit + abs(profit* 0.02),"Great job! Your trade looks promising and has the potential for positive returns. Keep up the good work in making smart investment decisions. As a reward, you are being awarded with an extra 2% of the profits you have made."]
+        return reward
+    if cluster == 0:
+        reward = [profit,"You've made a reasonable trade. While it may not be a standout move, it appears to be a solid decision that aligns with your overall strategy."]
+        return reward
+    if cluster == 3:
+        reward = [profit - abs(profit* 0.02),"This trade might not have gone as planned. It's important to reassess your strategy and consider adjusting your approach for better outcomes in the future. As a penalty, we are deducting 2% of the money you have made."]
+        return reward
+    if cluster == 1:
+        reward = [profit - abs(profit* 0.04),"Unfortunately, this trade did not go well. It happens to the best of us. Learn from the experience, analyze what went wrong, and use it to improve your future decisions. As a penalty, we are deducting 4% of the money you have made."]
+        return reward
+
+
+def plot(kmeans,X):
+    figure = plt.figure(figsize=(15, 5))
+    ax1 = figure.add_subplot(1, 2, 1)
+    scatter = ax1.scatter(X[:, 0], X[:, 1],
+                          c=kmeans.labels_.astype(float),
+                          edgecolor="k", s=150, cmap=customcmap)
+    ax1.set_xlabel("Price", fontsize=12)
+    ax1.set_ylabel("Constant", fontsize=12)
+    ax1.yaxis.set_visible(False)
+    ax1.set_title("K-Means Clusters", fontsize=12)
+    plt.show()
+
+def performance(profit, og_price):
+    return(profit*100/og_price)
 
 if __name__ == '__main__': 
     reset_prices()

@@ -17,16 +17,15 @@ const SearchPlayer = ({ onSearch }) => {
   };
 
   return (
-    <div>
+    <div className='w-full'>
       <input
         type="text"
         placeholder="Search for a player..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         onKeyPress={handleKeyPress}
-        className='text-white bg-slate-900'
+        className='text-white bg-slate-900 rounded-md w-full'
       />
-      <button onClick={handleSearch}>Search</button>
     </div>
   );
 };

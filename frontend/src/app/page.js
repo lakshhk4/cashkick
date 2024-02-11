@@ -6,15 +6,22 @@ import { useEffect, useState } from "react";
 import SearchPlayer from "../../component/SearchPlayer";
 import PurchaseHistoryModal from "../../component/PurchaseHistoryModal";
 import { useRouter } from "next/navigation";
+import { Toast, ToastToggle } from "flowbite-react";
+import Analytics from "./analytics/page";
+
 
 export default function Home() {
   const [userData, setUserData] = useState(null);
   const [searchResult, setSearchResult] = useState(null);
+  const [percentChange, setPercentChange] = useState(0);
   const [isSellMode, setIsSellMode] = useState(false);
   const [units, setUnits] = useState(1);
   const [incrementError, setIncrementError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [purchaseHistory, setPurchaseHistory] = useState([]);
+  const [purchaseMessage, setPurchaseMessage] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  
 
   const router = useRouter();
 
@@ -64,9 +71,9 @@ export default function Home() {
     }
   };
 
-  const navigateToAnalytics = () => {
-    router.push(`/analytics`);
-  };
+  // const navigateToAnalytics = () => {
+  //   router.push(`/analytics`);
+  // };
 
   const handleSell = async () => {
     if (searchResult && userData && units > 0) {
@@ -86,8 +93,13 @@ export default function Home() {
           }),
         });
 
+        const responseData = await response.json();
         if (response.ok) {
           // Update the local state by removing the sold units
+
+          setPercentChange(responseData[1].performance.toFixed(2));
+          setPurchaseMessage(responseData[0].message);
+
           fetchData();
 
           setSearchResult(null);
@@ -165,6 +177,10 @@ export default function Home() {
     setUnits(item.units);
   };
 
+  const navigateToLeaderboard = () => {
+    router.push("/leaderboard")
+  }
+
   const handleIncrement = () => {
     if (!isSellMode || units < searchResult.units) {
       setUnits((prevUnits) => prevUnits + 1);
@@ -187,6 +203,10 @@ export default function Home() {
     setPurchaseHistory(player);
   };
 
+  const handleInsight = () => {
+    setAnalytics(searchResult.name)
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-start p-24">
       <div className="flex flex-row w-full justify-between items-center">
@@ -194,8 +214,8 @@ export default function Home() {
           Welcome Back, {userData.name}
         </span>
 
-        <button onClick={navigateToAnalytics}>
-          <span>Analytics</span>
+        <button onClick={navigateToLeaderboard}>
+          <span>Leaderboard</span>
         </button>
       </div>
 
@@ -205,12 +225,22 @@ export default function Home() {
         <div className="flex flex-col items-start">
           <div className="flex flex-row justify-between w-full">
             <span className="text-xl font-semibold">My Portfolio</span>
-            <span className="text-xl font-semibold">Today's Performance</span>
+            <span className="text-xl font-semibold">
+              Last Transaction Performance
+            </span>
           </div>
 
           <div className="flex flex-row justify-between w-full">
             <span className="text-5xl font-bold mt-4">${userData.budget}</span>
-            <span className="text-5xl font-bold mt-4 text-green-500">9.3%</span>
+            {percentChange >= 0 ? (
+              <span className="text-5xl font-bold mt-4 text-green-500">
+                {percentChange}%
+              </span>
+            ) : (
+              <span className="text-5xl font-bold mt-4 text-red-500">
+                {percentChange}%
+              </span>
+            )}
           </div>
 
           <span className="text-xl font-bold mt-12">My Players</span>
@@ -379,9 +409,19 @@ export default function Home() {
                 </button>
               )}
 
+              <button
+                onClick={handleInsight}
+                disabled={searchResult.price > userData.budget}
+                className="w-1/2 rounded-xl bg-cyan-200 p-4 mt-8"
+              >
+                <span className="text-2xl text-black">View Insights</span>
+              </button>
+
               {searchResult.price * units > userData.budget && !isSellMode && (
                 <p>Cannot afford to buy this player with the current budget.</p>
               )}
+
+              {analytics && <Analytics player_name={searchResult.name}/>}
             </div>
           ) : (
             <div className="mt-20">
@@ -391,6 +431,13 @@ export default function Home() {
           )}
         </div>
       </div>
+      {purchaseMessage && (
+        <Toast className="w-full">
+          <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-100 text-cyan-500 dark:bg-cyan-800 dark:text-cyan-200"></div>
+          <div className="ml-3 text-sm font-normal">{purchaseMessage}</div>
+          <ToastToggle />
+        </Toast>
+      )}
     </main>
   );
 }
