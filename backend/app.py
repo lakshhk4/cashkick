@@ -3,6 +3,7 @@ from flask import Flask, jsonify, request
 import json
 from bson import json_util
 from flask_cors import CORS
+import random
 # import db
 
 app = Flask(__name__)
@@ -10,13 +11,15 @@ cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 
-CONNECTION_STRING = "mongodb+srv://gharatayush27:IhCy4nAxrSecDipw@cluster0.0hckrze.mongodb.net/?retryWrites=true&w=majority"
+CONNECTION_STRING = "mongodb+srv://sid:3u4P5zdShi8CfAaR@cluster0.0hckrze.mongodb.net/?retryWrites=true&w=majority"
 client = MongoClient(CONNECTION_STRING)
 # Replace 'your_database_name' with your actual database name
 db = client['cashkick']
 # Replace 'your_collection_name' with your actual collection name
 usertable = db['user']
 playertable = db['collection']
+
+print(usertable)
 
 
 @app.route('/')
@@ -113,6 +116,32 @@ def sell_player():
         print(e)
         return jsonify({'error': str(e)}), 500
 
-
+@app.route('/updateprice', methods=['POST','GET'])
+def update_prices():
+    rows = playertable.find({})
+    for row in rows:
+        value = int(row['cost'])
+        percentage_adjustment = 100 + random.uniform(5, -5)
+        adjustment = int(value * (percentage_adjustment / 100))
+        playertable.update_one({'_id':row['_id']},{'$set':{'cost':adjustment}})
+    update_portfolio()
+    return "LOL"
+    
+@app.route('/updateportfolio', methods=['POST','GET'])
+def update_portfolio():
+    users = usertable.find({})
+    for user in users:
+        new_portfolio = 0
+        for player in user['players']:
+            name = player['name']
+            print(id)
+            player_found = playertable.find_one({'name':name})
+            print(player_found)
+            print(player_found.get('cost'))
+            new_portfolio+=player_found.get('cost')
+        wealth = new_portfolio+int(user['budget'])
+        print(wealth)
+        usertable.update_one({'_id':user['_id']},{'$set':{'wealth':wealth}})
+    return 'lol'
 if __name__ == '__main__':
     app.run(port=8000, debug=True)
