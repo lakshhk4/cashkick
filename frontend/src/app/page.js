@@ -59,11 +59,10 @@ export default function Home() {
   };
 
   const handleSell = async () => {
-    if (searchResult && userData) {
-      const newBudget = parseInt(searchResult.cost) + userData.budget; // replace 'cost' with the actual property name
-
-      console.info(newBudget);
-
+    if (searchResult && userData && units > 0) {
+      const unitsToSell = Math.min(searchResult.units, units); // Sell the minimum of available units and selected units
+      const newBudget = parseInt(searchResult.cost * unitsToSell);
+  
       try {
         const response = await fetch("http://localhost:8000/sell/player", {
           method: "POST",
@@ -73,23 +72,17 @@ export default function Home() {
           body: JSON.stringify({
             player_details: searchResult,
             budget: newBudget,
+            units: unitsToSell,
           }),
         });
-
+  
         if (response.ok) {
-          // Update the local state by removing the sold player
-          // setUserData({
-          //   ...userData,
-          //   players: userData.players.filter(
-          //     (player) => player !== searchResult
-          //   ),
-          //   budget: userData.budget + playerPrice,
-          // });
-
+          // Update the local state by removing the sold units
           fetchData();
-
+  
           setSearchResult(null);
           setIsSellMode(false);
+          setUnits(1); // Reset units to 1 after selling
           console.log("Sell successful!");
         } else {
           console.error("Failed to sell player");
@@ -217,9 +210,11 @@ export default function Home() {
                   <span className="ms-3 text-xl">{player.rating}</span>
                 </div>
                 <span className="ms-3 text-xl">{player.units}</span>
+                <button>Purchase history</button>
               </div>
             );
           })}
+
         </div>
         <div className="flex flex-col items-start px-16">
           <SearchPlayer onSearch={searchPlayer} />
