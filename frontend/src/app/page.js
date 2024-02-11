@@ -4,6 +4,8 @@ import Image from "next/image";
 import Header from "../../component/header";
 import { useEffect, useState } from "react";
 import SearchPlayer from "../../component/SearchPlayer";
+import PurchaseHistoryModal from "../../component/PurchaseHistoryModal";
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const [userData, setUserData] = useState(null);
@@ -11,6 +13,10 @@ export default function Home() {
   const [isSellMode, setIsSellMode] = useState(false);
   const [units, setUnits] = useState(1);
   const [incrementError, setIncrementError] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [purchaseHistory, setPurchaseHistory] = useState([]);
+
+  const router = useRouter();
 
   useEffect(() => {
     fetchData();
@@ -58,11 +64,15 @@ export default function Home() {
     }
   };
 
+  const navigateToAnalytics = () => {
+    router.push(`/analytics`);
+  }
+
   const handleSell = async () => {
     if (searchResult && userData && units > 0) {
       const unitsToSell = Math.min(searchResult.units, units); // Sell the minimum of available units and selected units
       const newBudget = parseInt(searchResult.cost * unitsToSell);
-  
+
       try {
         const response = await fetch("http://localhost:8000/sell/player", {
           method: "POST",
@@ -75,11 +85,11 @@ export default function Home() {
             units: unitsToSell,
           }),
         });
-  
+
         if (response.ok) {
           // Update the local state by removing the sold units
           fetchData();
-  
+
           setSearchResult(null);
           setIsSellMode(false);
           setUnits(1); // Reset units to 1 after selling
@@ -92,6 +102,10 @@ export default function Home() {
         console.error("Error during sell:", error);
       }
     }
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
   };
 
   const handleBuy = async () => {
@@ -148,7 +162,7 @@ export default function Home() {
     console.log(item);
     setSearchResult(item);
     setIsSellMode(true);
-    setUnits(item.units)
+    setUnits(item.units);
   };
 
   const handleIncrement = () => {
@@ -159,7 +173,7 @@ export default function Home() {
       setIncrementError(true);
     }
   };
-  
+
   const handleDecrement = () => {
     if (units > 1) {
       setUnits((prevUnits) => prevUnits - 1);
@@ -167,12 +181,21 @@ export default function Home() {
     }
   };
 
+  const handlePurchaseHistory = (player) => {
+    setIsModalOpen(true);
+    setPurchaseHistory(player["purchase_history"])
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-start p-24">
       <div className="flex flex-row w-full justify-between items-center">
         <span className="text-2xl font-semibold items-start">
           Welcome Back, {userData.name}
         </span>
+
+        <button onClick={navigateToAnalytics}>
+          <span>Analytics</span>
+        </button>
       </div>
 
       <div className="h-[0.5px] w-full bg-slate-500 mt-8"></div>
@@ -207,14 +230,22 @@ export default function Home() {
                     className="rounded-full aspect-square object-cover"
                   ></Image>
                   <span className="ms-3 text-2xl">{player.name}</span>
-                  <span className="ms-3 text-xl">{player.rating}</span>
+                  <span className="ms-3 text-xl">{player.overall}</span>
                 </div>
                 <span className="ms-3 text-xl">{player.units}</span>
-                <button>Purchase history</button>
+                <button onClick={() => handlePurchaseHistory(player)}>
+                  Purchase history
+                </button>
+                {
+                  <PurchaseHistoryModal
+                    isOpen={isModalOpen}
+                    onClose={closeModal}
+                    purchaseHistory={purchaseHistory}
+                  />
+                }
               </div>
             );
           })}
-
         </div>
         <div className="flex flex-col items-start px-16">
           <SearchPlayer onSearch={searchPlayer} />
@@ -224,7 +255,7 @@ export default function Home() {
               <div className="flex flex-row w-full justify-between">
                 <span className="text-4xl">{searchResult.name}</span>
                 <span className="text-4xl font-bold">
-                  {searchResult.rating}
+                  {searchResult.overall}
                 </span>
               </div>
 
@@ -232,13 +263,72 @@ export default function Home() {
                 ${searchResult.cost}
               </span>
 
-              <Image
-                src={searchResult.url}
-                alt={searchResult.name}
-                height={80}
-                width={80}
-                className="rounded-full aspect-square object-cover"
-              ></Image>
+              <div className="flex flex-col">
+                <Image
+                  src={searchResult.vers_img}
+                  alt={searchResult.name}
+                  height={240}
+                  width={240}
+                  className="object-cover"
+                ></Image>
+
+                <div className="absolute flex flex-col w-[240px]">
+                  <span className="text-[#F5DB9B] text-4xl mt-16 ms-10">
+                    {searchResult.overall}
+                  </span>
+                  <span className="text-[#F5DB9B] text-xl ms-[44px]">
+                    {searchResult.position}
+                  </span>
+
+                  <span className="text-[#F5DB9B] text-lg mt-[60px] ms-[85px]">
+                    {searchResult.name}
+                  </span>
+
+                  <div className="flex flex-row justify-center space-x-4 w-full mt-1">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[#F5DB9B] text-xs">PAC</span>
+                      <span className="text-[#F5DB9B] text-lg -mt-1">
+                        {searchResult.pace}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[#F5DB9B] text-xs">SHO</span>
+                      <span className="text-[#F5DB9B] text-lg -mt-1">
+                        {searchResult.shooting}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[#F5DB9B] text-xs">PAS</span>
+                      <span className="text-[#F5DB9B] text-lg -mt-1">
+                        {searchResult.passing}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-row justify-center space-x-2 w-full mt-1">
+                    <Image
+                      src={searchResult.club_img}
+                      height={27}
+                      width={27}
+                      alt="Club"
+                    />
+
+                    <Image
+                      src={searchResult.league_img}
+                      height={27}
+                      width={27}
+                      alt="Club"
+                    />
+
+                    <Image
+                      src={searchResult.nation_img}
+                      height={27}
+                      width={35}
+                      alt="Club"
+                    />
+                  </div>
+                </div>
+              </div>
 
               <div className="flex flex-col items-center mt-8">
                 <span className="text-2xl">Units</span>
