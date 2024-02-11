@@ -17,6 +17,7 @@ db = client['cashkick']
 # Replace 'your_collection_name' with your actual collection name
 usertable = db['user']
 playertable = db['collection']
+bought_price = db['Bought_Price']
 
 
 @app.route('/')
@@ -80,6 +81,7 @@ def buy_player():
                 {},
                 {'$push': {'players': player_details}, '$set': {'budget': remaining_budget}}
             )
+        data_buy(remaining_budget,player_details['name'])
 
         return jsonify({'message': 'Player purchased successfully'}), 200
 
@@ -116,3 +118,20 @@ def sell_player():
 
 if __name__ == '__main__':
     app.run(port=8000, debug=True)
+
+def data_buy(budget,player_name):
+    for player in playertable:
+        player_cost = player.get("cost",0)
+        
+        if player_cost <= budget:
+            bought_price.update_one(
+                {"player_name":player["name"]},
+                {"$set":{player_name:player_cost}},
+                upsert=True
+            )
+        else:
+            bought_price.update_one(
+                {"player_name": player["name"]},
+                {"$set": {player_name: float("nan")}},
+                upsert=True
+            )
