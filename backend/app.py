@@ -81,11 +81,20 @@ def buy_player():
             # If the player exists, update the units property
             usertable.update_one(
                 {'players.name': player_details['name']},
-                {'$inc': {'players.$.units': units}, '$set': {'budget': remaining_budget}}
+                {'$inc': {'players.$.units': units},
+                 '$push': {'players.$.purchase_history': {
+                     'cost_per_unit': player_cost,
+                     'total_units': units
+                 }},
+                 '$set': {'budget': remaining_budget}}
             )
         else:
             # If the player doesn't exist, add the new player to the array
             player_details['units'] = units
+            player_details['purchase_history'] = [{
+                'cost_per_unit': player_cost,
+                'total_units': units
+            }]
             usertable.update_one(
                 {},
                 {'$push': {'players': player_details}, '$set': {'budget': remaining_budget}}
@@ -105,17 +114,27 @@ def sell_player():
         data = request.get_json()
         player_details = data.get('player_details')
         budget = data.get('budget')
+        units_to_sell = data.get('units')
 
-        print(player_details)
-        print(budget)
-
-        if not player_details or not budget:
+        if not player_details or not budget or units_to_sell is None:
             return jsonify({'message': 'Invalid request data'}), 400
 
-        # Update user's budget and remove the sold player from the list
-        usertable.update_one({}, {
-            '$pull': {'players': {'name': player_details['name']}},
-            '$set': {'budget': budget}
+        # Adjust the units of the player being sold
+        player_to_sell = {'name': player_details['name'], 'units': units_to_sell}
+
+        # Update user's budget and decrement the units of the sold player
+        usertable.update_one({
+            'players.name': player_details['name']
+        }, {
+            '$inc': {'budget': budget, 'players.$.units': -units_to_sell}
+        })
+
+        # Remove the player if units reach 0
+        usertable.update_one({
+            'players.name': player_details['name'],
+            'players.units': {'$lte': 0}
+        }, {
+            '$pull': {'players': {'name': player_details['name']}}
         })
 
         return jsonify({'message': 'Player sold successfully'}), 200
